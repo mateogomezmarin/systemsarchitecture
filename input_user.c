@@ -3,6 +3,7 @@
 #include <stdlib.h> //needed for free()
 #include <errno.h>
 #include "input_user.h"
+#include <limits.h>
 
 
 char *user_input(enum input_status *err){ // Use of enum in the error to have various options

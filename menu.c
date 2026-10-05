@@ -1,13 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include "input_user.h"
+#include "menu.h"
 
-int main(void)
+int menu(void)
 {
-    char *linea = NULL;
-    size_t tamaño = 0;
-    ssize_t bytes_leidos;
-
     while (1)
     {
         printf(
@@ -25,22 +21,31 @@ int main(void)
             "Please, enter an option: "
         );
 
-        bytes_leidos = getline(&linea, &tamaño, stdin);
+        enum input_status err;
+        int option = int_input(&err);
 
-        if (bytes_leidos == -1)
+        switch (err)
         {
-            // Ctrl+D -> EOF
-            printf("\nGoodbye!\n");
-            free(linea);
-            return 0;
+            case INPUT_EOF:
+                printf("\nGoodbye!\n");
+                return 0;
+
+            case INPUT_ERROR:
+                perror("input");
+                return -1;
+
+            case INPUT_INVALID:
+                printf("Enter a valid number 0-7\n");
+                continue;       // go back and show the menu again
+
+            case INPUT_OK:
+                break;          // continue to the switch below
         }
 
-        int numero = strtol(linea, NULL, 10);
-
-        switch (numero)
+        switch (option)
         {
             case 0:
-                free(linea);
+                printf("Goodbye!\n");
                 return 0;
 
             case 1:
