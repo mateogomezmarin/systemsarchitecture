@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "input_user.h"
 #include "menu.h"
+#include "collection.h"
 
 int menu(void)
 {
@@ -50,6 +51,8 @@ int menu(void)
 
             case 1:
                 printf("You are in menu 1\n");
+                if(exi)
+
                 break;
 
             case 2:
@@ -73,11 +76,33 @@ int menu(void)
                 break;
 
             case 7:
-                printf("You are in menu 7\n");
+                menu_help();
                 break;
 
             default:
                 printf("Enter a valid number 0-7\n");
         }
     }
+
+
+    void menu_help(){
+         printf(
+
+
+    "\n-------- Help menu --------\n"
+    "1. Add a new process : gathers the process data and adds it to the schedule.\n"
+    "2. Delete a process : Removes process from the schedule.\n"
+    "3. Information about a process: shows data of one process.\n"
+    "4. Show the schedule : lists all the processes in the schedule.\n"
+    "5. Delete the schedule : removes all the processes from the schedule.\n"
+    "6. Sort the schedule : reorders the processes by the criterion you choose.\n"
+    "7. Help : shows this message.\n"
+    "0. Exit : closes the program.\n"
+        );        
+    }
+
 }
+
+
+
+
