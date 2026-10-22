@@ -3,31 +3,30 @@
 #include <errno.h>
 #include <collection.h>
 
-
-
-struct schedule *newShedule(struct process actualProcess){
-	struct schedule *newS=(strcut schedule *)malloc(sizeof(struct schedule));
-if (newS==NULL){
-return null;
-//function error allocating
-}
-(*newS	).processes=(struct processes *)malloc(sizeof(struct process)
-if ((*newS).processes==NULL){
-	free(newS);
-	//function error allocating
-}else{
-	(*newS).processes[0]=actualProcess;
-	(*newS).size=1;
-}
-return newS;
-}
-
-int scheduleCheck // Funtion that needs to be implemented
+int scheduleCheck=0; // Funtion that needs to be implemented
 
 //Returns 0 if schedule already exists
 
 //1 if need to create schedule already
 
+
+struct schedule *newShedule(char *name, int p, int C){
+	struct schedule *newS=(strcut schedule *)malloc(sizeof(struct schedule));
+if (newS==NULL){
+return null;
+//function error allocating
+}
+(*newS).processes=(struct processes *)malloc(sizeof(struct process))
+if ((*newS).processes==NULL){
+	free(newS);
+	//function error allocating
+}else{
+	(*newS).processes[0]=newProcess(name, p, C);
+	(*newS).size=1;
+}
+scheduleCheck=1;
+return newS;
+}
 
 
 int existInSchedule(struct schedule *sched, struct process *proc){
@@ -44,17 +43,19 @@ int existInSchedule(struct schedule *sched, struct process *proc){
     return 0;   //not found any process equal
 }
 
-void addLast(struct schedule *sched, struct process *proc){
+
+int addLast(struct schedule *sched, char *name, int p, int C){
 	struct process *newarray = (struct process *)realloc((*sched).processes, sizeof(struct process)*((*sched).size+1));
 	if (newarray==NULL){
-		//error allocating function
+	//error allocating function
 		free()
-		return
+		return 0;
 	}else{
 		(*sched).processes=newarray;
-		(*sched).procceses[(*sched).size];
+		(*sched).processes[(*sched).size]=newProcess(name, p, c);
 		(*sched).size=(*sched).size+1;
 	}
+    return 1;
 }
 
 
@@ -74,6 +75,9 @@ return col;
 
 
 //FUNCTIONS FOUND IN AULAGLOBAL to be implemented with qsort()
+
+
+
 
 int compare_id(const void *pa, const void *pb){
     struct item *a = (struct item *) pa;
@@ -98,4 +102,62 @@ int compare_name(const void *pa, const void *pb){
 }
 
 
+int quitfromschedule(struct schedule *s, int pid){
+    int i, j;
+    struct process *deleted;
+
+    if (s == NULL || pid <= 0)
+        return 0    ; //set error for empty schedule
+
+    for (i = 0; i < (*s).size; i++) {
+        if ((*(*s).processes[i]).pid == pid) {
+            deleted = (*s).processes[i];
+
+            for (j = i; j <(*s).size - 1; j++)
+                (*s).processes[j] = (*s).processes[j + 1];
+
+            (*s).size=(*s).size-1;
+            free(deleted);
+            return 1;
+
+        }
+    }
+    return NULL;
+}
+
+
+int deleteSchedule(struct schedule *s){
+    if (s==NULL){
+            //function error
+            return 0;
+    }
+    for(int i = 0; i<(*s).size;i++){
+        if ((*s).processes[i]!=NULL){
+            free((*(*s).processes[i]).name);
+            free((*s).processes[i]);
+        }
+    }
+    free((*s).processes);
+    if ((*s).processes==NULL){
+        free(s);
+    }
+    scheduleCheck=0;
+    return 1;
+    
+}
+
+int printSchedule(struct schedule *s){ 
+    if (s==NULL){
+        return 0;
+    }
+    printf("POS\tPID\tP\tC\tSTATE\tOWNER\n");
 	
+    int i=0;
+    for (i;i<(*s).size;i++){
+        printf("%d\t%u\t%u\t%u\t%s\t%s\n", i+1, (*(*s).processes[i]).pid,(*(*s).processes[i]).p, (*(*s).processes[i]).C, (*(*s).processes[i]).state, (*(*s).processes[i]).user);;
+    }
+
+}
+
+
+
