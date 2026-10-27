@@ -1,266 +1,54 @@
-#define _GNU_SOURCE // Needed for strdup() under -std=c11
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#ifndef ITEM_H
+#define ITEM_H
+
 #include "util.h"
-#include "item.h"
 
+/* Item is one process in the schedule.
+   Every function that takes a Status *error must receive a non-NULL pointer.
+   A returned value is only valid when *error == STATUS_OK. */
 
-Process *item_create(int pid, const char *user, int p, int C, Status *error) {
+typedef enum states {
+    READY,
+    RUNNING,
+    STOPPED,
+    TERMINATED
+} States; //defined states
 
-    if (pid <= 0 || p <= 0 || C <= 0 ||
-        user == NULL || user[0] == '\0') {
-        *error = STATUS_INVALID;
-        return NULL;
-    }
+//Typedef allows us to create an alias for a type, in this case Process
 
-    Process *item = malloc(sizeof(Process)); //If item == NULL, you already know it failed,
-    //malloc fails for only one reason: out of memory
+typedef struct process {
+    int pid;       // > 0, unique, never reused, must check
+    char *user;    // owner's name, owned by the Process (freed in item_delete)
+    int p;         // priority, > 0 (must check)
+    int C;         // CPU execution time, > 0 (must check)
+    States state;
+} Process; //We can declare a variable as: Process p1;
 
-    if (item == NULL) {
-        *error = STATUS_ERROR;
-        return NULL;
-    }
+//Returns the new Process, or NULL on failure. The caller must free it with item_delete
+//user is const because item_create makes its own copy
+Process *item_create(int pid, const char *user, int p, int C, Status *error);
+void item_delete(Process *item, Status *error); //The caller should set its pointer to NULL afterwards
 
-    item->user = strdup(user); //Same as malloc
+//Getters, with const so we don't change the Processes
+int item_get_pid(const Process *item, Status *error);
+const char *item_get_user(const Process *item, Status *error); //Owned by the item, the caller must not free it
+int item_get_p(const Process *item, Status *error);
+int item_get_C(const Process *item, Status *error);
+States item_get_state(const Process *item, Status *error);
 
-    if (item->user == NULL) {
-        free(item);
-        *error = STATUS_ERROR;
-        return NULL;
-    }
+void item_set_state(Process *item, States state, Status *error);
 
-    item->pid = pid;
-    item->p = p;
-    item->C = C;
-    item->state = READY;
+const char *item_state_to_string(States state, Status *error); //Read only string literal, never free it
 
-    *error = STATUS_OK;
-    return item;
-}
+void item_print_header(void); //Prints only the column titles: POS PID P C STATE OWNER
+int item_print(const Process *item, int position, Status *error); //Prints a row for one process, 0 on success, -1 on failure
 
-void item_delete(Process *item, Status *error) {
-    if (item != NULL) {
-        free(item->user);
-        free(item);
-        *error = STATUS_OK;
-        return;
-    }
-    *error = STATUS_INVALID;
-}
+int item_same_data(const Process *item, const Process *item2, Status *error); //1 if identical data, 0 if different or invalid
 
-int item_get_pid(const Process *item, Status *error) {
-    if (item == NULL) {
-        *error = STATUS_INVALID;
-        return -1;
-    }
-    *error = STATUS_OK;
-    return item->pid;
-}
+//Return -1, 0 or 1 like strcmp
+int item_cmp_pid(const Process *item, const Process *item2, Status *error);
+int item_cmp_priority(const Process *item, const Process *item2, Status *error);
+int item_cmp_c(const Process *item, const Process *item2, Status *error);
+int item_cmp_user(const Process *item, const Process *item2, Status *error);
 
-const char *item_get_user(const Process *item, Status *error) {
-    if (item == NULL) {
-        *error = STATUS_INVALID;
-        return NULL;
-    }
-
-    *error = STATUS_OK;
-    return item->user;
-}
-
-int item_get_p(const Process *item, Status *error) {
-    if (item == NULL) {
-        *error = STATUS_INVALID;
-        return -1;
-    }
-
-    *error = STATUS_OK;
-    return item->p;
-}
-
-int item_get_C(const Process *item, Status *error) {
-    if (item == NULL) {
-        *error = STATUS_INVALID;
-        return -1;
-    }
-
-    *error = STATUS_OK;
-    return item->C;
-}
-
-States item_get_state(const Process *item, Status *error) {
-    if (item == NULL) {
-        *error = STATUS_INVALID;
-        return (States)-1;
-    }
-
-    *error = STATUS_OK;
-    return item->state;
-}
-
-void item_set_state(Process *item, States state, Status *error) {
-    if (item == NULL || (state != READY && state != RUNNING &&
-                         state != STOPPED && state != TERMINATED)) {
-        *error = STATUS_INVALID;
-        return;
-    }
-
-    item->state = state;
-    *error = STATUS_OK;
-}
-
-const char *item_state_to_string(States state, Status *error) {
-    switch (state) {
-        case READY:
-            *error = STATUS_OK;
-            return "READY";
-
-        case RUNNING:
-            *error = STATUS_OK;
-            return "RUNNING";
-
-        case STOPPED:
-            *error = STATUS_OK;
-            return "STOPPED";
-
-        case TERMINATED:
-            *error = STATUS_OK;
-            return "TERMINATED";
-
-        default:
-            *error = STATUS_INVALID;
-            return NULL;
-    }
-}
-
-void item_print_header(void) {
-    printf("POS\tPID\tP\tC\tSTATE\tOWNER\n");
-}
-
-int item_print(const Process *item, int position, Status *error) {
-    if (item == NULL || position <= 0) {
-        *error = STATUS_INVALID;
-        return -1;
-    }
-
-    Status state_error;
-    const char *state = item_state_to_string(item->state, &state_error);
-
-    if (state_error != STATUS_OK) {
-        *error = state_error;
-        return -1;
-    }
-
-    printf("%5d %5d %5d %5d %-10s %-20s\n", //- means its left aligned
-           position,
-           item->pid,
-           item->p,
-           item->C,
-           state,
-           item->user);
-
-    *error = STATUS_OK;
-    return 0;
-}
-
-int item_same_data(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-
-    //Both pointers are already checked, so the fields can be read directly
-    if (item->pid != item2->pid ||
-        item->p != item2->p ||
-        item->C != item2->C ||
-        item->state != item2->state ||
-        strcmp(item->user, item2->user) != 0) {
-        return 0;
-    }
-
-    return 1; //1 if both processes have identical data, 0 if their data differs
-}
-
-int item_cmp_pid(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    Status e1, e2;
-    int a = item_get_pid(item, &e1);
-    int b = item_get_pid(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-}
-
-int item_cmp_priority(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    Status e1, e2;
-    int a = item_get_p(item, &e1);
-    int b = item_get_p(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-}
-
-int item_cmp_c(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    Status e1, e2;
-    int a = item_get_C(item, &e1);
-    int b = item_get_C(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-}
-
-int item_cmp_user(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    Status e1, e2;
-    const char *a = item_get_user(item, &e1);
-    const char *b = item_get_user(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    return strcmp(a, b);
-}
+#endif
