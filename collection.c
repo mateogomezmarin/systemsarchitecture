@@ -1,167 +1,285 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
-#include <collection.h>
 
-int scheduleCheck=0; //constant that says if an schedule exists or not, 0 if not, 1 if yes
+#include "collection.h"
+#include "item.h"
+#include "util.h"
 
 
-struct schedule *newShedule(char *name, int p, int C, int *error){
-	*error=SUCCESS;
-    struct schedule *newS=(struct schedule *)malloc(sizeof(struct schedule));
-    if (newS==NULL){
-        *error=ERROR_ALLOCATING;
-        return null;
+Schedule *collection_create_empty(Status *error){
+    if(error == NULL){
+        return NULL;
     }
-    (*newS).processes=(struct processes *)malloc(sizeof(struct process))
-    if ((*newS).processes==NULL){
-	    free(newS);
-	    *error=ERROR_ALLOCATING;
-    }else{
-	    (*newS).processes[0]=newProcess(name, p, C, error);
-	    (*newS).size=1;
+
+    *error = STATUS_OK;
+
+    Schedule *schedule = malloc(sizeof(Schedule));
+
+    if (schedule == NULL) {
+        *error = STATUS_ERROR;
+        return NULL;
     }
-    scheduleCheck=1;
-    return newS;
+
+    schedule->items = malloc(INITIAL_CAPACITY * sizeof(Process *)); 
+    //allocates room for INITIAL_CAPACITY addresses, where sizeof(Process *) is the size of one address
+
+    if (schedule->items == NULL) {
+        free(schedule);
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    schedule->size = 0;
+    schedule->capacity = INITIAL_CAPACITY;
+    schedule->next_pid = 1;
+
+    return schedule;
 }
 
+void collection_delete(Schedule *collection){
+    if (collection == NULL) {
+        return;
+    }
 
-int existInSchedule(struct schedule *sched, struct process *proc, int *error) {
-    *error = SUCCESS;
-	if (sched == NULL || proc == NULL || (*sched).processes == NULL) { 
-		*error = ERR_INVALID_INPUT;
+    for (int i = 0; i < collection->size; i++) {
+        item_delete(collection->items[i]);
+    }
+
+    free(collection->items);
+    free(collection);
+}
+
+int collection_add(Schedule *collection, const char *user, int p, int c, Status *error){
+    if (error == NULL) {
         return 0;
     }
 
-    for (size_t i=0;i<(*sched).size;i++){//compare each pos of the array with each process
-        if(((*sched).processes[i]).p==(*proc).p && ((*sched).processes[i]).C==(*proc).C && strcmp(((*sched).processes[i]).name,(*proc).name)==0){
-            return 1; //found same process
+    *error = STATUS_OK; //Asume OK
+
+    if (collection == NULL || user == NULL) {
+        *error = STATUS_INVALID;
+        return 0;
+    }
+    // Avoid adding a duplicate process.
+    if (collection_exists_same(collection, user, p, c)) {
+        *error = STATUS_INVALID;
+        return 0;
+    }
+
+    if (collection->size >= collection->capacity) {
+        int new_capacity = collection->capacity * 2; //Design choice backed up by https://comp.anu.edu.au/courses/comp1110/notes/comp1110-43/
+        // Process **new_items: this is a pointer to an array of pointers to procesess.
+
+        Process **new_items = realloc(
+            collection->items,
+            new_capacity * sizeof(Process *)
+        );
+
+        if (new_items == NULL) {
+            *error = STATUS_ERROR; // Report that the memory allocation failed.
+            return 0;
         }
+
+        collection->items = new_items;
+        collection->capacity = new_capacity;
     }
-    return 0;   //not found any process equal
-}
 
+    Process *item = item_create(collection->next_pid, user, p, c, error);
 
-int addLast(struct schedule *sched, char *name, int p, int C, int *error) {
-    *error = SUCCESS;
-    if (sched == NULL || name == NULL || p <= 0 || C <= 0) {
-        *error = ERR_INVALID_INPUT;
+    if (item == NULL) {
         return 0;
     }
-	struct process *newarray = (struct process *)realloc((*sched).processes, sizeof(struct process)*((*sched).size+1));
-	if (newarray==NULL){
-		*error = ERR_ALLOCATING;
-		return 0;
-	}else{
-		(*sched).processes=newarray;
-		(*sched).processes[(*sched).size]=newProcess(name, p, c, error);
-		(*sched).size=(*sched).size+1;
-	}
+
+
+
+    collection->items[collection->size] = item;
+    collection->size++;
+    collection->next_pid++;
+
     return 1;
 }
 
-
-
-struct process *sort_schedule(struct schedule *s, int (*compare)(const void *, const void *), int *error){
-    *error = SUCCESS;
-    if (s == NULL || s->processes == NULL || s->size == 0) {
-        *error = ERR_NO_ITEMS;
-        return s;
-    }
-    if (s->size != 0){
-        qsort(s->processes, s->size, sizeof(struct process),compare);
-    }else{
-        *error = ERR_NO_ITEMS;
-    }
-return s;
-}
-
-int compare_pid(const void *a, const void *b) {
-    const struct process *p1 = (const struct process *)a;
-    const struct process *p2 = (const struct process *)b;
-    return compareIntegers(p1->pid, p2->pid);
-}
-
-int compare_p(const void *a, const void *b) {
-    const struct process *p1 = (const struct process *)a;
-    const struct process *p2 = (const struct process *)b;
-    return compareIntegers(p1->p, p2->p);
-}
-
-int compare_C(const void *a, const void *b) {
-    const struct process *p1 = (const struct process *)a;
-    const struct process *p2 = (const struct process *)b;
-    return compareIntegers(p1->C, p2->C);
-
-
-
-int compare_name(const void *a, const void *b) {
-    const struct process *p1 = (const struct process *)a;
-    const struct process *p2 = (const struct process *)b;
-
-    if (p1->name == NULL) return -1;
-    if (p2->name == NULL) return 1;
-
-    return strcmp(p1->name, p2->name);
-}
-
-
-int quitfromschedule(struct schedule *s, int pid, int *error){
-    int i, j;
-
-    if (s == NULL || pid <= 0) {
-        *error = ERR_NO_ITEMS;
+int collection_exists_same(const Schedule *collection, const char *user, int p, int c){
+    if (collection == NULL || user == NULL) {
         return 0;
     }
 
-    for (i = 0; i < (*s).size; i++) {
-        if ((*(*s).processes[i]).pid == pid) {
-            deleted = (*s).processes[i];
-            deleteProcess(&(*s).processes[i]);
-
-            for (j = i; j <(*s).size - 1; j++)
-                (*s).processes[j] = (*s).processes[j + 1];
-
-            (*s).size=(*s).size-1;
-            return 1;       //You dont have to free the memory of the process, because you free only if it is in a double pointer array.
-
+    for (int i = 0; i < collection->size; i++) {
+        if (strcmp(collection->items[i]->user, user) == 0 && collection->items[i]->p == p && collection->items[i]->C == c) {
+        return 1;
         }
     }
+
     return 0;
 }
 
-
-int deleteSchedule(struct schedule *s, int *error){
-    *error = SUCCESS;
-    if (s==NULL){
-        *error = ERR_NO_ITEMS;
-        return 0;
+void collection_remove_by_pid(Schedule *collection, int pid, Status *error){
+    if (error == NULL) {
+        return;
     }
-    for(int i = 0; i<(*s).size;i++){
-        if ((*s).processes[i]!=NULL){
-            deleteProcess(&(*s).processes[i]);
+
+    *error = STATUS_OK;
+
+    if (collection == NULL) {
+        *error = STATUS_INVALID;
+        return;
+    }
+
+    int position = -1;
+
+    for (int i = 0; i < collection->size; i++) {
+        if (collection->items[i]->pid == pid) {
+            position = i;
+            break;
         }
     }
-    free((*s).processes);
-    if ((*s).processes==NULL){
-        free(s);
+
+    if (position == -1) {
+        *error = STATUS_INVALID;
+        return;
     }
-    scheduleCheck=0;
-    return 1;
-    
+
+    item_delete(collection->items[position]);
+
+    for (int i = position; i < collection->size - 1; i++) {
+        collection->items[i] = collection->items[i + 1];
+    }
+
+    collection->size--;
+    collection->items[collection->size] = NULL;
 }
 
-int printSchedule(struct schedule *s){ 
-    if (s==NULL){
+Process *collection_find_by_pid(const Schedule *collection, int pid, int *position, Status *status){ //int *position is a secondary output parameter:
+
+
+    if (status == NULL) {
+        return NULL;
+    }
+
+    if (position != NULL) {
+    *position = -1;
+    }
+
+    *status = STATUS_OK;
+
+    if (collection == NULL) {
+        *status = STATUS_INVALID;
+        return NULL;
+    }
+
+    for (int i = 0; i < collection->size; i++) {
+        if (collection->items[i]->pid == pid) {
+            if (position != NULL) {
+                *position = i;
+            }
+
+            return collection->items[i];
+        }
+    }
+
+    *status = STATUS_INVALID;
+
+    if (position != NULL) {
+        *position = -1;
+    }
+
+    return NULL;
+}
+
+Process *collection_get_by_index(const Schedule *collection, int index, Status *status){
+    if (status == NULL) {
+        return NULL;
+    }
+
+    *status = STATUS_OK;
+
+    if (collection == NULL || index < 0 || index >= collection->size) {
+        *status = STATUS_INVALID;
+        return NULL;
+    }
+
+    return collection->items[index];
+}
+
+int collection_size(const Schedule *collection){ //auxiliary getter
+    if (collection == NULL) {
         return 0;
     }
-    printheader();
-    int i=0;
-    for (i;i<(*s).size;i++){
-        printf("%d\t%u\t%u\t%u\t%s\t%s\n", i+1, (*(*s).processes[i]).pid,(*(*s).processes[i]).p, (*(*s).processes[i]).C, (*(*s).processes[i]).state, (*(*s).processes[i]).user);
+
+    return collection->size;
+}
+int collection_is_empty(const Schedule *collection){
+     if (collection == NULL) {
+        return 1;
     }
+
+    return collection->size == 0;
 }
 
+void collection_clear(Schedule *collection)
+{
+    if (collection == NULL) {
+        return;
+    }
 
+    for (int i = 0; i < collection->size; i++) {
+        item_delete(collection->items[i]);
+        collection->items[i] = NULL;
+    }
 
+    collection->size = 0;
+}
 
+void collection_sort(
+    Schedule *collection,
+    int (*compare)(const Process *, const Process *, Status *),
+    Status *error
+)
+{
+    if (error == NULL) {
+        return;
+    }
+
+    *error = STATUS_OK;
+
+    if (collection == NULL || compare == NULL) {
+        *error = STATUS_INVALID;
+        return;
+    }
+
+    if (collection->size == 0) {
+        *error = STATUS_INVALID;
+        return;
+    }
+
+    for (int i = 1; i < collection->size; i++) {
+        Process *current = collection->items[i];
+        int j = i - 1;
+
+        while (j >= 0) {
+            Status compare_status = STATUS_OK;
+
+            int result = compare(
+                collection->items[j],
+                current,
+                &compare_status
+            );
+
+            if (compare_status != STATUS_OK) {
+                *error = compare_status;
+                return;
+            }
+
+            if (result <= 0) {
+                break;
+            }
+
+            collection->items[j + 1] = collection->items[j];
+            j--;
+        }
+
+        collection->items[j + 1] = current;
+    }
+}
