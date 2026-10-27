@@ -39,15 +39,22 @@ Process *item_create(int pid, const char *user, int p, int C, Status *error) {
     return item;
 }
 
-void item_delete(Process *item, Status *error) {
-    if (item != NULL) {
-        free(item->user);
-        free(item);
-        *error = STATUS_OK;
+void item_delete(Process *item, Status *error){
+    if (error == NULL) {
         return;
     }
-    *error = STATUS_INVALID;
+
+    if (item == NULL) {
+        *error = STATUS_INVALID;
+        return;
+    }
+
+    free(item->user);
+    free(item);
+
+    *error = STATUS_OK;
 }
+
 
 int item_get_pid(const Process *item, Status *error) {
     if (item == NULL) {
