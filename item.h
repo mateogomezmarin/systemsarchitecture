@@ -51,10 +51,10 @@ int item_print(const Process *item, int position, Status *error); //Prints a row
 int item_same_data(const Process *item, const Process *item2, Status *error); //1 if identical data, 0 if different or invalid
 
 //Return -1, 0 or 1 like strcmp
-int item_cmp_pid(const Process *item, const Process *item2, Status *error);
-int item_cmp_priority(const Process *item, const Process *item2, Status *error);
-int item_cmp_c(const Process *item, const Process *item2, Status *error);
-int item_cmp_user(const Process *item, const Process *item2, Status *error);
+int item_cmp_pid(const void *pa, const void *pb);
+int item_cmp_priority(const void *pa, const void *pb);
+int item_cmp_c(const void *pa, const void *pb);
+int item_cmp_user(const void *pa, const void *pb);
 
 void saveProcessToFile(const Process *proc, FILE *file, Status *error);
 

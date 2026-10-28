@@ -186,86 +186,47 @@ int item_same_data(const Process *item, const Process *item2, Status *error) {
     return 1; //1 if both processes have identical data, 0 if their data differs
 }
 
-int item_cmp_pid(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
+/* qsort passes pointers to the array elements. Each element is a Process *,
+   so each argument is really a Process ** and needs a double cast. */
 
-    Status e1, e2;
-    int a = item_get_pid(item, &e1);
-    int b = item_get_pid(item2, &e2);
+int item_cmp_pid(const void *pa, const void *pb)
+{
+    const Process *a = *(const Process * const *)pa;
+    const Process *b = *(const Process * const *)pb;
 
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
+    if (a->pid < b->pid) return -1;
+    if (a->pid > b->pid) return 1;
     return 0;
 }
 
-int item_cmp_priority(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
+int item_cmp_priority(const void *pa, const void *pb)
+{
+    const Process *a = *(const Process * const *)pa;
+    const Process *b = *(const Process * const *)pb;
 
-    Status e1, e2;
-    int a = item_get_p(item, &e1);
-    int b = item_get_p(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
+    if (a->p < b->p) return -1;
+    if (a->p > b->p) return 1;
+    return item_cmp_pid(pa, pb);   /* tie-break: keeps the order deterministic */
 }
 
-int item_cmp_c(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
+int item_cmp_c(const void *pa, const void *pb)
+{
+    const Process *a = *(const Process * const *)pa;
+    const Process *b = *(const Process * const *)pb;
 
-    Status e1, e2;
-    int a = item_get_C(item, &e1);
-    int b = item_get_C(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
+    if (a->C < b->C) return -1;
+    if (a->C > b->C) return 1;
+    return item_cmp_pid(pa, pb);
 }
 
-int item_cmp_user(const Process *item, const Process *item2, Status *error) {
-    if (item == NULL || item2 == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
+int item_cmp_user(const void *pa, const void *pb)
+{
+    const Process *a = *(const Process * const *)pa;
+    const Process *b = *(const Process * const *)pb;
 
-    Status e1, e2;
-    const char *a = item_get_user(item, &e1);
-    const char *b = item_get_user(item2, &e2);
-
-    if (e1 != STATUS_OK || e2 != STATUS_OK) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-
-    *error = STATUS_OK;
-    return strcmp(a, b);
+    int result = strcmp(a->user, b->user);
+    if (result != 0) return result;
+    return item_cmp_pid(pa, pb);
 }
 
 static int item_write_all(FILE *file, const void *data, size_t size)

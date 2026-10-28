@@ -163,8 +163,8 @@ void menu_show_all(const Schedule *schedule)
     }
 }
 
-void menu_add(Schedule *schedule, Status *error)
-{
+void menu_add(Schedule *schedule, Status *error){
+
 if (schedule == NULL || error == NULL) {
 return;
 }
@@ -187,8 +187,11 @@ if (*error != STATUS_OK) {
     return;
 }
 
+
+    /* Check whether an identical process already exists. */
 if (collection_exists_same(schedule, owner, p, C)) {
-    int add_anyway = menu_ask_yes_no("An identical process already exists. Add it anyway? (Y/N): ",error);
+    int add_anyway = menu_ask_yes_no( "An identical process already exists. Add it anyway? (Y/N): ",error);
+
     if (*error == STATUS_EOF) {
         printf("\n");          /* same behaviour as menu_load / menu_save */
     }
@@ -204,7 +207,7 @@ if (collection_exists_same(schedule, owner, p, C)) {
         }
     }
 
-    
+
 collection_add(schedule, owner, p, C, error);
 free(owner);
 

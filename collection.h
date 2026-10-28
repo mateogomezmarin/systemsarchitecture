@@ -30,8 +30,7 @@ int collection_is_empty(const Schedule *collection);
 
 void collection_clear(Schedule *collection); //does not reset the PID counter
 
-void collection_sort(Schedule *collection, int (*compare)(const Process *, const Process *, Status *),Status *error);
-
+void collection_sort(Schedule *collection, int (*compare)(const void *, const void *), Status *error);
 
 void loadScheduleFromFile(Schedule *schedule, const char *filename, Status *error);
 void saveScheduleToFile(const Schedule *schedule, const char *filename, Status *error);
