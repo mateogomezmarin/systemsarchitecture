@@ -268,9 +268,7 @@ void collection_sort(Schedule *collection,int (*compare)(const Process *, const 
 }
 
 
-void saveScheduleToFile(const Schedule *collection,
-                        const char *filename,
-                        Status *error){
+void saveScheduleToFile(const Schedule *collection,const char *filename,Status *error){ //Part2 function
 
     if (error == NULL) {
         return;
@@ -278,10 +276,10 @@ void saveScheduleToFile(const Schedule *collection,
 
     *error = STATUS_OK;
 
-    if (collection == NULL || filename == NULL || filename[0] == '\0') {
+    if (collection == NULL || filename == NULL || filename[0] == '\0') { //error for empty inputs
         errno = EINVAL;
         *error = STATUS_ERROR;
-        return;
+        return; 
     }
 
     FILE *file = fopen(filename, "wb");
