@@ -9,14 +9,14 @@
 #include "util.h"
 
 
-Schedule *collection_create_empty(Status *error){ //Creates the schedule
+Schedule *collection_create_empty(Status *error){
     if(error == NULL){
         return NULL;
     }
 
     *error = STATUS_OK;
 
-    Schedule *schedule = malloc(sizeof(Schedule)); //alocate memory for the schedule
+    Schedule *schedule = malloc(sizeof(Schedule));
 
     if (schedule == NULL) {
         *error = STATUS_ERROR;
