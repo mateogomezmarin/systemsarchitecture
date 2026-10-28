@@ -129,7 +129,7 @@ void collection_remove_by_pid(Schedule *collection, int pid, Status *error){
     }
 
     if (position == -1) {
-        *error = STATUS_INVALID; //not found
+        *error = STATUS_INVALID; //not found so invalid input
         return;
     }
 
