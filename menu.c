@@ -187,6 +187,24 @@ if (*error != STATUS_OK) {
     return;
 }
 
+if (collection_exists_same(schedule, owner, p, C)) {
+    int add_anyway = menu_ask_yes_no("An identical process already exists. Add it anyway? (Y/N): ",error);
+    if (*error == STATUS_EOF) {
+        printf("\n");          /* same behaviour as menu_load / menu_save */
+    }
+
+    if (*error != STATUS_OK) { /* CTRL+D or invalid answer */
+        free(owner);
+        return;
+    }
+
+    if (!add_anyway) {         /* The user answered N: back to the main menu */
+        free(owner);
+        return;
+        }
+    }
+
+    
 collection_add(schedule, owner, p, C, error);
 free(owner);
 
