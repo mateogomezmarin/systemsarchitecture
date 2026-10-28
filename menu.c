@@ -1,7 +1,8 @@
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <errno.h>
 #include "menu.h"
-#include "input.h"
+#include "input_usr.h"
 
 void menu_print_main(void){
 
@@ -218,7 +219,7 @@ void menu_info(Schedule *schedule, Status *error){
         return;
     }
 
-    Process *process = collection_find_by_pid(schedule, pid, error);
+    Process *process = collection_find_by_pid(schedule, pid, NULL, error);
 
     if (*error != STATUS_OK) {
         return;
@@ -250,7 +251,7 @@ void menu_delete_all(Schedule *schedule, Status *error){
     }
 
     if (answer == 1) {
-        collection_clear(schedule, error);
+        collection_clear(schedule);
     }
 }
 
@@ -259,6 +260,11 @@ void menu_delete_all(Schedule *schedule, Status *error){
 void menu_sort(Schedule *schedule, Status *error){
 
     if (schedule == NULL || error == NULL) {
+        return;
+    }
+
+    if (collection_is_empty(schedule)) {
+        *error = STATUS_INVALID;
         return;
     }
 

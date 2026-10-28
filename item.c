@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "util.h"
 #include "item.h"
 
@@ -134,8 +135,10 @@ const char *item_state_to_string(States state, Status *error) {
 }
 
 void item_print_header(void) {
-    printf("POS\tPID\tP\tC\tSTATE\tOWNER\n");
+    printf("%5s %5s %5s %5s %-10s %-20s\n", "POS", "PID", "P", "C", "STATE", "OWNER");
 }
+
+
 
 int item_print(const Process *item, int position, Status *error) {
     if (item == NULL || position <= 0) {
@@ -263,4 +266,152 @@ int item_cmp_user(const Process *item, const Process *item2, Status *error) {
 
     *error = STATUS_OK;
     return strcmp(a, b);
+}
+
+static int item_write_all(FILE *file, const void *data, size_t size)
+{
+    errno = 0;
+
+    if (fwrite(data, 1, size, file) != size) {
+        if (errno == 0) {
+            errno = EIO;
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
+static int item_read_all(FILE *file, void *data, size_t size)
+{
+    errno = 0;
+
+    if (fread(data, 1, size, file) == size) {
+        return 1;
+    }
+
+    if (ferror(file)) {
+        if (errno == 0) {
+            errno = EIO;
+        }
+    } else {
+        errno = EBADMSG; // Premature end of file
+    }
+
+    return 0;
+}
+
+void saveProcessToFile(const Process *proc, FILE *file, Status *error)
+{
+    if (error == NULL) {
+        return;
+    }
+
+    *error = STATUS_OK;
+
+    if (proc == NULL || file == NULL || proc->user == NULL) {
+        errno = EINVAL;
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    size_t length = strlen(proc->user);
+
+    if (length == 0 || length > MAX_USER_LEN) {
+        errno = EINVAL;
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    int p = proc->p;
+    int c = proc->C;
+    int state = proc->state;
+    int user_length = (int)length;
+
+    if (!item_write_all(file, &p, sizeof(p)) ||
+        !item_write_all(file, &c, sizeof(c)) ||
+        !item_write_all(file, &state, sizeof(state)) ||
+        !item_write_all(file, &user_length, sizeof(user_length)) ||
+        !item_write_all(file, proc->user, length)) {
+        *error = STATUS_ERROR; // errno set by item_write_all
+    }
+}
+
+Process *loadProcessFromFile(FILE *file, int pid, Status *error)
+{
+    if (error == NULL) {
+        return NULL;
+    }
+
+    *error = STATUS_OK;
+
+    if (file == NULL || pid <= 0) {
+        errno = EINVAL;
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    int p, c, state;
+    int user_length;
+
+    if (!item_read_all(file, &p, sizeof(p)) ||
+        !item_read_all(file, &c, sizeof(c)) ||
+        !item_read_all(file, &state, sizeof(state)) ||
+        !item_read_all(file, &user_length, sizeof(user_length))) {
+        *error = STATUS_ERROR; // errno set by item_read_all
+        return NULL;
+    }
+
+    if (p <= 0 || c <= 0 ||
+        state < READY || state > TERMINATED ||
+        user_length <= 0 || user_length > MAX_USER_LEN) {
+        errno = EBADMSG;
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    char *user = malloc((size_t)user_length + 1);
+
+    if (user == NULL) {
+        errno = ENOMEM;
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    if (!item_read_all(file, user, (size_t)user_length)) {
+        int saved_errno = errno; // free() could change it
+        free(user);
+        errno = saved_errno;
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    user[user_length] = '\0';
+
+    if (strlen(user) != (size_t)user_length) {
+        free(user);
+        errno = EBADMSG;
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    Status status = STATUS_OK;
+    Process *item = item_create(pid, user, p, c, &status);
+
+    free(user); // item_create() keeps its own copy
+
+    if (item == NULL) {
+        if (status == STATUS_ERROR) {
+            errno = ENOMEM;
+        } else {
+            errno = EBADMSG;
+        }
+
+        *error = STATUS_ERROR;
+        return NULL;
+    }
+
+    item->state = (States)state; // Already validated above
+
+    return item;
 }

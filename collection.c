@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "collection.h"
 #include "item.h"
@@ -59,11 +60,6 @@ int collection_add(Schedule *collection, const char *user, int p, int c, Status 
     *error = STATUS_OK; //Asume OK
 
     if (collection == NULL || user == NULL) {
-        *error = STATUS_INVALID;
-        return 0;
-    }
-    // Avoid adding a duplicate process.
-    if (collection_exists_same(collection, user, p, c)) {
         *error = STATUS_INVALID;
         return 0;
     }
@@ -232,12 +228,7 @@ void collection_clear(Schedule *collection)
     collection->size = 0;
 }
 
-void collection_sort(
-    Schedule *collection,
-    int (*compare)(const Process *, const Process *, Status *),
-    Status *error
-)
-{
+void collection_sort(Schedule *collection,int (*compare)(const Process *, const Process *, Status *),Status *error){
     if (error == NULL) {
         return;
     }
@@ -282,4 +273,237 @@ void collection_sort(
 
         collection->items[j + 1] = current;
     }
+}
+
+
+void saveScheduleToFile(const Schedule *collection,
+                        const char *filename,
+                        Status *error){
+
+    if (error == NULL) {
+        return;
+    }
+
+    *error = STATUS_OK;
+
+    if (collection == NULL || filename == NULL || filename[0] == '\0') {
+        errno = EINVAL;
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    FILE *file = fopen(filename, "wb");
+
+    if (file == NULL) { // errno set by fopen
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    int count = collection->size;
+    int failed = 0;
+
+    errno = 0;
+
+    if (fwrite(&count, sizeof(count), 1, file) != 1) {
+        if (errno == 0) {
+            errno = EIO;
+        }
+
+        *error = STATUS_ERROR;
+        failed = 1;
+    }
+
+    for (int i = 0; i < collection->size && !failed; i++) {
+        saveProcessToFile(collection->items[i], file, error);
+
+        if (*error != STATUS_OK) {
+            failed = 1;
+        }
+    }
+
+    int saved_errno = errno; // fclose() could overwrite it
+
+    if (fclose(file) != 0 && !failed) {
+        *error = STATUS_ERROR; // errno comes from fclose()
+        return;
+    }
+
+    if (failed) {
+        errno = saved_errno;
+    }
+}
+
+void loadScheduleFromFile(Schedule *collection, const char *filename,Status *error){
+    
+    if (error == NULL) {
+        return;
+    }
+
+    *error = STATUS_OK;
+
+    if (collection == NULL || filename == NULL || filename[0] == '\0') {
+        errno = EINVAL;
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    FILE *file = fopen(filename, "rb");
+
+    if (file == NULL) { // errno set by fopen
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    int total = 0;
+
+    errno = 0;
+
+    if (fread(&total, sizeof(total), 1, file) != 1) {
+        if (ferror(file)) {
+            if (errno == 0) {
+                errno = EIO;
+            }
+        } else {
+            errno = EBADMSG; // File is too short
+        }
+
+        int saved_errno = errno;
+        fclose(file);
+        errno = saved_errno;
+
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    if (total < 0) {
+        errno = EBADMSG;
+
+        int saved_errno = errno;
+        fclose(file);
+        errno = saved_errno;
+
+        *error = STATUS_ERROR;
+        return;
+    }
+
+    Process **loaded = NULL; // Temporary array of loaded processes
+    int count = 0;
+    int failed = 0;
+
+    for (int i = 0; i < total && !failed; i++) {
+
+        if (count == INT_MAX ||
+            collection->next_pid > INT_MAX - count - 1) {
+            errno = EOVERFLOW;
+            *error = STATUS_ERROR;
+            failed = 1;
+            break;
+        }
+
+        Process **bigger = realloc(
+            loaded,
+            (size_t)(count + 1) * sizeof(Process *)
+        );
+
+        if (bigger == NULL) {
+            errno = ENOMEM;
+            *error = STATUS_ERROR;
+            failed = 1;
+            break;
+        }
+
+        loaded = bigger;
+
+        Process *item = loadProcessFromFile(
+            file,
+            collection->next_pid + count,
+            error
+        );
+
+        if (item == NULL) {
+            failed = 1;
+            break;
+        }
+
+        loaded[count++] = item;
+    }
+
+    if (!failed) {
+        errno = 0;
+
+        if (fgetc(file) != EOF) {
+            errno = EBADMSG; // Extra bytes after the last process
+            *error = STATUS_ERROR;
+            failed = 1;
+        } else if (ferror(file)) {
+            if (errno == 0) {
+                errno = EIO;
+            }
+
+            *error = STATUS_ERROR;
+            failed = 1;
+        }
+    }
+
+    int saved_errno = errno;
+
+    if (fclose(file) != 0 && !failed) {
+        if (errno == 0) {
+            errno = EIO;
+        }
+
+        *error = STATUS_ERROR;
+        failed = 1;
+    }
+
+    if (failed) {
+        saved_errno = errno;
+
+        for (int i = 0; i < count; i++) {
+            item_delete(loaded[i]);
+        }
+
+        free(loaded);
+
+        errno = saved_errno;
+        *error = STATUS_ERROR;
+        return; // Schedule remains unchanged
+    }
+
+    if (count > collection->capacity) {
+        Process **bigger = realloc(
+            collection->items,
+            (size_t)count * sizeof(Process *)
+        );
+
+        if (bigger == NULL) {
+            errno = ENOMEM;
+            *error = STATUS_ERROR;
+
+            saved_errno = errno;
+
+            for (int i = 0; i < count; i++) {
+                item_delete(loaded[i]);
+            }
+
+            free(loaded);
+
+            errno = saved_errno;
+            return;
+        }
+
+        collection->items = bigger;
+        collection->capacity = count;
+    }
+
+    collection_clear(collection); // Does not reset next_pid
+
+    for (int i = 0; i < count; i++) {
+        collection->items[i] = loaded[i];
+    }
+
+    collection->size = count;
+    collection->next_pid += count;
+
+    free(loaded); // Processes now belong to the schedule
 }

@@ -3,6 +3,10 @@
 
 #include "util.h"
 
+#include <stdio.h>
+
+#define MAX_USER_LEN 255
+
 /* Item is one process in the schedule.
    Every function that takes a Status *error must receive a non-NULL pointer.
    A returned value is only valid when *error == STATUS_OK. */
@@ -27,7 +31,8 @@ typedef struct process {
 //Returns the new Process, or NULL on failure. The caller must free it with item_delete
 //user is const because item_create makes its own copy
 Process *item_create(int pid, const char *user, int p, int C, Status *error);
-void item_delete(Process *item, Status *error); //The caller should set its pointer to NULL afterwards
+
+void item_delete(Process *item); //The caller should set its pointer to NULL afterwards
 
 //Getters, with const so we don't change the Processes
 int item_get_pid(const Process *item, Status *error);
@@ -50,5 +55,9 @@ int item_cmp_pid(const Process *item, const Process *item2, Status *error);
 int item_cmp_priority(const Process *item, const Process *item2, Status *error);
 int item_cmp_c(const Process *item, const Process *item2, Status *error);
 int item_cmp_user(const Process *item, const Process *item2, Status *error);
+
+void saveProcessToFile(const Process *proc, FILE *file, Status *error);
+
+Process *loadProcessFromFile(FILE *file, int pid, Status *error);
 
 #endif

@@ -8,4 +8,14 @@ typedef enum{
     STATUS_ERROR //program failed, abort and clean up
 }Status;
 
+enum { 
+    SORT_BY_PID = 1,
+    SORT_BY_PRIORITY, 
+    SORT_BY_C, 
+    SORT_BY_USER 
+};
+
 #endif
+
+
+

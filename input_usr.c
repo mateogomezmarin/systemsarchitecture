@@ -15,14 +15,17 @@ char *input_usr_line(Status *error){ // Use of enum to return the input status
     //ssize_t Integer with sign 64 bits
     ssize_t len = getline(&line, &size, stdin); //getline() allocates the memory to line address and returns number of characters read in ssize_T
     if (len == -1){
-        free(line); //even if it failed getline() might have allocated memory
-        if (errno == 0) {
-            *error = STATUS_EOF; //Ctrl + D
-        } else {
-            *error = STATUS_ERROR; //Error in the stystem
-        }
-        return NULL;
+    free(line);
+    if (errno == 0) {
+        clearerr(stdin);     // reset the EOF flag so the next read works
+        *error = STATUS_EOF; //Ctrl + D
+    } else {
+        *error = STATUS_ERROR; //Error in the system
     }
+    return NULL;
+}
+
+    
 
     if(len > 0 && line[len - 1] == '\n'){ //Used for removing \n
         line[len - 1] = '\0';
