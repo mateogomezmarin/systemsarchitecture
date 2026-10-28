@@ -169,7 +169,7 @@ void menu_add(Schedule *schedule, Status *error){ //adds a process
 
     char *owner = menu_ask_owner(error);
     if (*error != STATUS_OK) {
-        free(owner);free the name
+        free(owner);//free the name
         return;
     }
 
