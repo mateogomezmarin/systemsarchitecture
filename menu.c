@@ -32,7 +32,7 @@ int menu_ask_option(Status *error){
     *error = STATUS_OK;
 
     Status input_error = STATUS_OK;
-    int option = input_usr_int(&input_error);
+    int option = input_usr_int(&input_error); //check inputs
 
     if (input_error != STATUS_OK) {
         *error = input_error;
@@ -73,7 +73,7 @@ void menu_help(void){
     printf("   Terminates the program.\n\n");
 }
 
-char *menu_ask_owner(Status *error){
+char *menu_ask_owner(Status *error){ //function that asks for a name of the user
 
     if (error == NULL) {
         return NULL;
@@ -83,7 +83,7 @@ char *menu_ask_owner(Status *error){
 }
 
 
-int menu_ask_positive_int(const char *prompt, Status *error){
+int menu_ask_positive_int(const char *prompt, Status *error){ //asks an integer
 
 printf("%s", prompt);
 
@@ -103,18 +103,18 @@ return number;
 }
 
 
-int menu_ask_yes_no(const char *prompt, Status *error){
+int menu_ask_yes_no(const char *prompt, Status *error){ //asks Y or N
 
     printf("%s", prompt);
     return input_usr_YN(error);
 }
 
-char *menu_ask_filename(Status *error){
+char *menu_ask_filename(Status *error){ //ask name of the file
     printf("Enter filename: ");
     return input_usr_line(error);
 }
 
-int menu_ask_sort_criterion(Status *error){
+int menu_ask_sort_criterion(Status *error){ //ask the criteria for sorting
 
 printf("Select sorting criterion:\n");
 printf("1. PID\n");
@@ -138,14 +138,12 @@ return criterion;
 
 }
 
-void menu_show_process(const Process *process, int position)
-{
+void menu_show_process(const Process *process, int position){ //print process to menu
     Status error;
     item_print(process, position, &error);
 }
 
-void menu_show_all(const Schedule *schedule)
-{
+void menu_show_all(const Schedule *schedule){//shows all processes
     if (schedule == NULL || collection_is_empty(schedule)) {
         printf("The schedule is empty.\n");
         return;
@@ -153,70 +151,70 @@ void menu_show_all(const Schedule *schedule)
 
     item_print_header();
 
-    for (int i = 0; i < collection_size(schedule); i++) {
+    for (int i = 0; i < collection_size(schedule); i++) {//loop for 
         Status error;
-        Process *process = collection_get_by_index(schedule, i, &error);
+        Process *process = collection_get_by_index(schedule, i, &error);//get the process
 
         if (error == STATUS_OK) {
-            menu_show_process(process, i + 1);
+            menu_show_process(process, i + 1); //shows each process
         }
     }
 }
 
-void menu_add(Schedule *schedule, Status *error){
-
-if (schedule == NULL || error == NULL) {
-return;
-}
-
-char *owner = menu_ask_owner(error);
-if (*error != STATUS_OK) {
-    free(owner);
-    return;
-}
-
-int p = menu_ask_positive_int("Enter priority (p): ", error);
-if (*error != STATUS_OK) {
-    free(owner);
-    return;
-}
-
-int C = menu_ask_positive_int("Enter C: ", error);
-if (*error != STATUS_OK) {
-    free(owner);
-    return;
-}
-
-
-    /* Check whether an identical process already exists. */
-if (collection_exists_same(schedule, owner, p, C)) {
-    int add_anyway = menu_ask_yes_no( "An identical process already exists. Add it anyway? (Y/N): ",error);
-
-    if (*error == STATUS_EOF) {
-        printf("\n");          /* same behaviour as menu_load / menu_save */
-    }
-
-    if (*error != STATUS_OK) { /* CTRL+D or invalid answer */
-        free(owner);
-        return;
-    }
-
-    if (!add_anyway) {         /* The user answered N: back to the main menu */
-        free(owner);
-        return;
-        }
-    }
-
-
-collection_add(schedule, owner, p, C, error);
-free(owner);
-
-}
-
-void menu_delete(Schedule *schedule, Status *error){
+void menu_add(Schedule *schedule, Status *error){ //adds a process
 
     if (schedule == NULL || error == NULL) {
         return;
+    }
+
+    char *owner = menu_ask_owner(error);
+    if (*error != STATUS_OK) {
+        free(owner);free the name
+        return;
+    }
+
+    int p = menu_ask_positive_int("Enter priority (p): ", error);
+    if (*error != STATUS_OK) {
+        free(owner);
+        return;
+    }
+
+    int C = menu_ask_positive_int("Enter C: ", error);
+    if (*error != STATUS_OK) {
+        free(owner);
+        return;
+    }
+
+
+    //check if exists another process with same chars
+    if (collection_exists_same(schedule, owner, p, C)) {
+        int add_anyway = menu_ask_yes_no( "An identical process already exists. Add it anyway? (Y/N): ",error);
+
+        if (*error == STATUS_EOF) {
+            printf("\n");          
+        }
+
+        if (*error != STATUS_OK) { 
+            free(owner);
+            return;
+        }
+
+        if (!add_anyway) {        
+            free(owner);
+            return;
+        }
+    }
+
+
+    collection_add(schedule, owner, p, C, error);
+    free(owner);
+
+}
+
+void menu_delete(Schedule *schedule, Status *error){//deletes
+
+    if (schedule == NULL || error == NULL) {
+        return; //no shcedule or error
     }
 
     int pid = menu_ask_positive_int("Enter process PID: ", error);
@@ -225,7 +223,7 @@ void menu_delete(Schedule *schedule, Status *error){
         return;
     }
 
-    collection_remove_by_pid(schedule, pid, error);
+    collection_remove_by_pid(schedule, pid, error);//remove by the pid the process
 }
 
 void menu_info(Schedule *schedule, Status *error){
@@ -251,21 +249,18 @@ void menu_info(Schedule *schedule, Status *error){
 }
 
 
-void menu_delete_all(Schedule *schedule, Status *error){
+void menu_delete_all(Schedule *schedule, Status *error){//deletes all, schedule and processes
 
     if (schedule == NULL || error == NULL) {
         return;
     }
 
-    if (collection_is_empty(schedule)) {
+    if (collection_is_empty(schedule)) {//already empty schedule
         *error = STATUS_INVALID;
         return;
     }
 
-    int answer = menu_ask_yes_no(
-        "Are you sure you want to delete the entire schedule? (y/n): ",
-        error
-    );
+    int answer = menu_ask_yes_no("Are you sure you want to delete the entire schedule? (y/n): ",error);
 
     if (*error != STATUS_OK) {
         return;
@@ -278,7 +273,7 @@ void menu_delete_all(Schedule *schedule, Status *error){
 
 
 
-void menu_sort(Schedule *schedule, Status *error){
+void menu_sort(Schedule *schedule, Status *error){//sorting info 
 
     if (schedule == NULL || error == NULL) {
         return;
@@ -318,10 +313,8 @@ void menu_sort(Schedule *schedule, Status *error){
     }
 }
 
-
-void menu_load(Schedule *schedule, Status *error)
-{
-    // CHANGED: Also check that schedule is not NULL.
+//part 2 functions
+void menu_load(Schedule *schedule, Status *error){ 
     if (schedule == NULL || error == NULL) {
         return;
     }
@@ -341,7 +334,7 @@ void menu_load(Schedule *schedule, Status *error)
         return; //STATUS_EOF (CTRL + D) or STATUS_ERROR (errno set by getline)
     }
 
-    //1. Check that the file can be read: if fopen fails, errno says why (ENOENT, EACCES...)
+   // Check that the file can be read
     FILE *test = fopen(filename, "rb");
 
     if (test == NULL) {
@@ -354,7 +347,7 @@ void menu_load(Schedule *schedule, Status *error)
 
     fclose(test); //It was only a check
 
-    //2. If the schedule is not empty, ask before erasing it
+    //If the schedule is not empty, ask before erasing it
     int was_empty = collection_is_empty(schedule);
 
     if (!was_empty) {
@@ -363,38 +356,35 @@ void menu_load(Schedule *schedule, Status *error)
         printf("Proceed? Continuing will erase it (Y/N): ");
         int proceed = input_usr_YN(error);
 
-        // CHANGED: Removed the retry loop and fprintf(stderr, ...)
-        // so program.c can handle invalid input and print the error message.
-
         if (*error == STATUS_EOF) {
             printf("\n");
         }
 
         if (*error != STATUS_OK) { //CTRL + D or input failure
-            saved_errno = errno; //free() could overwrite the cause of the failure
-            free(filename);      // CHANGED: Fixed indentation.
+            saved_errno = errno; //free() could overwrite due to error
+            free(filename);     
             errno = saved_errno;
             return;
         }
 
-        if (!proceed) { //The user answered N: back to the main menu
+        if (!proceed) { //answer is no
             free(filename);
             return;
         }
     }
 
-    //3. Load. The old content is only removed if the whole file is valid
+    // Load. The old content is only removed if the whole file is valid
     loadScheduleFromFile(schedule, filename, error);
 
     if (*error != STATUS_OK) {
-        saved_errno = errno; //free() could overwrite the cause of the failure
+        saved_errno = errno; 
         free(filename);
         errno = saved_errno;
 
         if (errno == ENOMEM) { //The program cannot continue
             *error = STATUS_ERROR;
         } else {
-            *error = STATUS_INVALID; //Problem with the file (EBADMSG if it is not a valid schedule)
+            *error = STATUS_INVALID; //Problem with the file
         }
         return;
     }
@@ -405,12 +395,10 @@ void menu_load(Schedule *schedule, Status *error)
 
     printf("Schedule loaded from %s\n", filename);
 
-    free(filename);
+    free(filename);//free memory
 }   
 
-void menu_save(const Schedule *schedule, Status *error)
-{
-    // CHANGED: Also check that schedule is not NULL.
+void menu_save(const Schedule *schedule, Status *error){
     if (schedule == NULL || error == NULL) {
         return;
     }
@@ -430,7 +418,7 @@ void menu_save(const Schedule *schedule, Status *error)
         return; //STATUS_EOF (CTRL + D) or STATUS_ERROR (errno set by getline)
     }
 
-    //1. Does the file already exist? If fopen fails with ENOENT it does not
+    // If fopen fails with ENOENT file does not exist
     int exists = 1;
     FILE *test = fopen(filename, "rb");
 
@@ -442,7 +430,6 @@ void menu_save(const Schedule *schedule, Status *error)
         fclose(test); //It was only a check
     }
 
-    // CHANGED: If opening failed for a reason other than ENOENT,
     // report an error instead of treating the file as writable.
     if (test == NULL && exists) {
         saved_errno = errno;
@@ -452,13 +439,13 @@ void menu_save(const Schedule *schedule, Status *error)
         return;
     }
 
-    if (exists) {
-        //2. It exists: check that it can be written. "ab" does not erase anything
+    if (exists) { //it exists
+        //check that it can be written
         test = fopen(filename, "ab");
 
         if (test == NULL) { //errno: EACCES, EROFS, EISDIR...
-            saved_errno = errno; //free() could overwrite the cause of the failure
-            free(filename);      // CHANGED: Fixed indentation.
+            saved_errno = errno; 
+            free(filename);     
             errno = saved_errno;
             *error = STATUS_INVALID;
             return;
@@ -466,20 +453,17 @@ void menu_save(const Schedule *schedule, Status *error)
 
         fclose(test);
 
-        //3. It exists and can be written: ask before overwriting
+        //It exists and can be written: ask before overwriting
         printf("File exists. Overwrite? (Y/N): ");
         int overwrite = input_usr_YN(error);
-
-        // CHANGED: Removed the retry loop and fprintf(stderr, ...)
-        // so program.c can handle invalid input and print the error message.
 
         if (*error == STATUS_EOF) {
             printf("\n");
         }
 
-        if (*error != STATUS_OK) { //CTRL + D or input failure
-            saved_errno = errno; //free() could overwrite the cause of the failure
-            free(filename);      // CHANGED: Fixed indentation.
+        if (*error != STATUS_OK) {
+            saved_errno = errno; 
+            free(filename);    
             errno = saved_errno;
             return;
         }
@@ -490,11 +474,11 @@ void menu_save(const Schedule *schedule, Status *error)
         }
     }
 
-    //4. Write the data
+    //Write the data
     saveScheduleToFile(schedule, filename, error);
 
     if (*error != STATUS_OK) {
-        saved_errno = errno; //free() could overwrite the cause of the failure
+        saved_errno = errno; 
         free(filename);
         errno = saved_errno;
 
@@ -508,5 +492,5 @@ void menu_save(const Schedule *schedule, Status *error)
 
     printf("Schedule saved to file %s\n", filename);
 
-    free(filename);
+    free(filename);//free memory
 }
